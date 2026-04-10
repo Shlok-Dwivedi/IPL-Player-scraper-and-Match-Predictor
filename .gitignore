@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+env/
+venv/
+ENV/
+
+# Project Caches
+cache/
+.cache/
+data/*.zip
+*.zip
+
+# Logs
+*.log
+
+# Sensitive
+.env

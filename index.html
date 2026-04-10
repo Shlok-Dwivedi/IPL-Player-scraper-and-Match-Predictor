@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPL Fantasy XI Clash</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #000;
+  --surface:  #0a0a0a;
+  --card:     #111;
+  --border:   #222;
+  --border2:  #333;
+  --text:     #fff;
+  --text-dim: #888;
+  --text-faint:#444;
+  --accent:   #fff;
+  --hi:       #fff;
+  --red:      #fff;
+
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-mono:    'DM Mono', monospace;
+  --font-body:    'Barlow', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 0 28px; }
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+}
+.logo-box {
+  width: 44px; height: 44px;
+  border: 1px solid var(--border2);
+  display: grid; place-items: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+h1 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  letter-spacing: 3px;
+  color: #fff;
+  line-height: 1;
+}
+header p {
+  font-size: .72rem;
+  color: var(--text-dim);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* ── Steps ──────────────────────────────────────────────── */
+.steps {
+  display: flex; align-items: center; gap: 4px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.step-n {
+  width: 24px; height: 24px;
+  border: 1px solid var(--border2);
+  display: grid; place-items: center;
+  font-size: .7rem;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+.step-l {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+.step.active .step-n { border-color: #fff; color: #fff; background: #fff; color: #000; }
+.step.active .step-l { color: #fff; }
+.step.done  .step-n  { background: #fff; color: #000; border-color: #fff; }
+.step.done  .step-l  { color: var(--text-dim); }
+.step-sep { color: var(--text-faint); font-size: .9rem; padding: 0 2px; }
+
+/* ── Panel ──────────────────────────────────────────────── */
+.panel { display: none; padding: 28px 0; }
+.panel.active { display: block; }
+
+/* ── Teams grid ─────────────────────────────────────────── */
+.teams-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media(max-width:860px){ .teams-grid{ grid-template-columns:1fr; } }
+
+.team-card {
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.team-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.team-dot {
+  width: 8px; height: 8px;
+  background: #fff;
+  flex-shrink: 0;
+}
+.team-dot.b { background: var(--text-dim); }
+.team-name-inp {
+  background: transparent; border: none; outline: none;
+  font-family: var(--font-display);
+  font-size: 1.3rem; letter-spacing: 2px;
+  color: #fff; width: 100%;
+}
+.team-name-inp::placeholder { color: var(--text-faint); }
+
+.player-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+
+.prow {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border);
+  padding: 9px 12px;
+  background: var(--surface);
+  transition: border-color .15s;
+}
+.prow:focus-within { border-color: #555; }
+.pnum {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--text-faint);
+  width: 18px; flex-shrink: 0;
+}
+.pinp {
+  flex: 1; background: transparent;
+  border: none; outline: none;
+  font-family: var(--font-body);
+  font-size: .88rem; color: #fff;
+}
+.pinp::placeholder { color: var(--text-faint); font-size: .82rem; }
+.pchip {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: var(--text-dim);
+  border: 1px solid var(--border2);
+  padding: 1px 6px;
+  white-space: nowrap;
+  max-width: 110px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.pchip.show { display: block; }
+.pstat {
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  font-size: .72rem; flex-shrink: 0;
+  color: var(--text-faint);
+}
+.pstat.ok  { color: #fff; }
+.pstat.err { color: #666; }
+.pstat.loading { animation: spin .7s linear infinite; }
+
+.card-actions {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 20px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: .8rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn:hover { border-color: #fff; color: #fff; }
+.btn-primary {
+  background: #fff; color: #000;
+  border-color: #fff;
+}
+.btn-primary:hover { background: #ddd; border-color: #ddd; color: #000; }
+.btn:disabled { opacity: .3; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--border2); color: var(--text-dim); background: transparent; }
+
+.action-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+}
+.status-txt {
+  font-family: var(--font-mono);
+  font-size: .75rem; color: var(--text-dim);
+}
+.status-txt b { color: #fff; }
+
+/* ── Loading ─────────────────────────────────────────────── */
+#overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.92);
+  z-index: 100;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px;
+}
+#overlay.show { display: flex; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 2px solid #222;
+  border-top-color: #fff;
+  animation: spin 1s linear infinite;
+}
+.overlay-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem; letter-spacing: 3px;
+}
+.overlay-sub {
+  font-family: var(--font-mono);
+  font-size: .72rem; color: var(--text-dim);
+  text-align: center; max-width: 300px;
+}
+
+/* ── Toast ──────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #111;
+  border: 1px solid #444;
+  padding: 12px 18px;
+  font-size: .82rem; color: var(--text-dim);
+  max-width: 340px; z-index: 200;
+  transform: translateY(60px); opacity: 0;
+  transition: all .25s;
+  pointer-events: none;
+  font-family: var(--font-mono);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── Results ─────────────────────────────────────────────── */
+.prediction-box {
+  border: 1px solid var(--border);
+  padding: 28px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.vs-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 28px; margin-bottom: 20px;
+}
+.vs-team { flex: 1; max-width: 260px; }
+.vs-name {
+  font-family: var(--font-display);
+  font-size: 1.8rem; letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.vs-name.a { color: #fff; }
+.vs-name.b { color: #888; }
+.vs-score {
+  font-family: var(--font-mono);
+  font-size: 2.6rem; font-weight: 500;
+}
+.vs-score.a { color: #fff; }
+.vs-score.b { color: #888; }
+.vs-sep {
+  font-family: var(--font-display);
+  font-size: 1.4rem; color: #444;
+}
+.winner-lbl {
+  font-size: .68rem; text-transform: uppercase;
+  letter-spacing: 2px; color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.winner-name {
+  font-family: var(--font-display);
+  font-size: 2.2rem; letter-spacing: 3px; color: #fff;
+}
+.conf-bar {
+  width: 180px; height: 2px;
+  background: #222; margin: 12px auto 4px;
+}
+.conf-fill { height: 100%; background: #fff; transition: width 1s ease; }
+.conf-lbl {
+  font-family: var(--font-mono);
+  font-size: .7rem; color: var(--text-dim);
+}
+
+/* ── Stat cards ─────────────────────────────────────────── */
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 12px; margin-bottom: 24px;
+}
+@media(max-width:700px){ .stat-cards{ grid-template-columns:repeat(2,1fr); } }
+.scard {
+  border: 1px solid var(--border);
+  padding: 14px;
+  background: var(--card);
+}
+.scard-lbl {
+  font-size: .65rem; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.srow { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.sval {
+  font-family: var(--font-mono);
+  font-size: .8rem; width: 38px; text-align: right;
+}
+.sval.a { color: #fff; }
+.sval.b { color: #666; }
+.sbar-bg { flex: 1; height: 3px; background: #222; }
+.sbar { height: 100%; transition: width .8s ease; }
+.sbar.a { background: #fff; }
+.sbar.b { background: #555; }
+
+/* ── Result section ─────────────────────────────────────── */
+.rsection {
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+  background: var(--card);
+}
+.rtabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+}
+.rtab {
+  padding: 12px 18px;
+  background: transparent; border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: .75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--text-dim);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all .15s;
+  position: relative; bottom: -1px;
+}
+.rtab.active { color: #fff; border-bottom-color: #fff; }
+.rtab-content { display: none; padding: 18px; }
+.rtab-content.active { display: block; }
+
+/* ── Two-column layout for results ──────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media(max-width:860px){ .two-col{ grid-template-columns:1fr; } }
+
+.col-head {
+  font-family: var(--font-display);
+  font-size: 1rem; letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid;
+}
+.col-head.a { color: #fff; border-color: #fff; }
+.col-head.b { color: #888; border-color: #444; }
+
+/* ── Tables ─────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: .62rem; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text-dim);
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+td {
+  padding: 8px 7px;
+  font-size: .8rem;
+  border-bottom: 1px solid #181818;
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #0d0d0d; }
+
+.pos-n { font-family: var(--font-mono); font-size: .7rem; color: #555; width: 20px; }
+.pname { font-weight: 600; }
+.mono { font-family: var(--font-mono); font-size: .77rem; }
+
+/* Role badges */
+.rbadge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: .58rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .3px;
+  border: 1px solid #333;
+  color: #888;
+  white-space: nowrap;
+}
+.rbadge.opener    { border-color: #fff; color: #fff; }
+.rbadge.top       { border-color: #ccc; color: #ccc; }
+.rbadge.upper     { border-color: #aaa; color: #aaa; }
+.rbadge.middle    { border-color: #888; color: #888; }
+.rbadge.lower     { border-color: #666; color: #666; }
+.rbadge.finisher  { border-color: #bbb; color: #bbb; }
+.rbadge.allround  { border-color: #999; color: #999; }
+.rbadge.bowler    { border-color: #555; color: #555; }
+.rbadge.tail      { border-color: #333; color: #444; }
+
+/* Bowl type */
+.bbadge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: .58rem; font-weight: 700;
+  text-transform: uppercase;
+  border: 1px solid #333;
+  color: #888; white-space: nowrap;
+}
+.bbadge.pace { border-color: #fff; color: #fff; }
+.bbadge.spin { border-color: #888; color: #888; }
+
+/* Form dot */
+.fdot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block; margin-right: 4px;
+  background: #444;
+}
+.fdot.hot  { background: #fff; }
+.fdot.warm { background: #888; }
+.fdot.cold { background: #333; }
+
+/* Overs — shown as plain number */
+
+/* Keeper badge */
+/* .wk {
+  display: inline-block;
+  padding: 1px 4px;
+  font-size: .58rem; font-weight: 700;
+  border: 1px solid #fff; color: #fff;
+  margin-left: 4px;
+} */
+
+/* Pred score row */
+.psrow {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.pslbl { font-size: .65rem; text-transform: uppercase; letter-spacing: 1px; color: #555; }
+.psval {
+  font-family: var(--font-display);
+  font-size: 1.4rem; letter-spacing: 1px;
+}
+.psval.a { color: #fff; }
+.psval.b { color: #888; }
+
+/* ── Impact bars ─────────────────────────────────────────── */
+.iitem {
+  padding: 10px 0;
+  border-bottom: 1px solid #111;
+}
+.iitem:last-child { border: none; }
+.iname { font-weight: 600; font-size: .85rem; }
+.irole { font-size: .65rem; color: #555; text-transform: uppercase; letter-spacing: .5px; }
+.ibar-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .65rem; color: #555; margin-top: 5px;
+}
+.ibar-row span:first-child { width: 36px; }
+.itrack { flex: 1; height: 3px; background: #1a1a1a; }
+.ifill { height: 100%; transition: width .8s ease; }
+.ifill.bat   { background: #fff; }
+.ifill.bowl  { background: #888; }
+.ifill.form  { background: #555; }
+.ifill.field { background: #333; }
+.ival {
+  width: 28px; text-align: right;
+  font-family: var(--font-mono); font-size: .65rem; color: #555;
+}
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+#results-panel { animation: fadeUp .3s ease; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo-box">🏏</div>
+    <div>
+      <h1>IPL FANTASY XI CLASH</h1>
+      <p>Build your XI · Compare stats · Predict the winner</p>
+    </div>
+  </header>
+
+  <div class="steps">
+    <div class="step active" id="s1" onclick="goStep(1)">
+      <div class="step-n">1</div>
+      <div class="step-l">Build XIs</div>
+    </div>
+    <span class="step-sep">›</span>
+    <div class="step" id="s2" onclick="goStep(2)">
+      <div class="step-n">2</div>
+      <div class="step-l">Results</div>
+    </div>
+  </div>
+
+  <!-- Step 1 -->
+  <div class="panel active" id="panel-1">
+    <div class="teams-grid">
+
+      <div class="team-card">
+        <div class="team-head">
+          <div class="team-dot"></div>
+          <input class="team-name-inp" id="name-a" value="Team Alpha" placeholder="Team Name">
+        </div>
+        <div class="player-list" id="list-a"></div>
+        <div class="card-actions">
+          <button class="btn" onclick="loadAll('a')">Load All</button>
+        </div>
+      </div>
+
+      <div class="team-card">
+        <div class="team-head">
+          <div class="team-dot b"></div>
+          <input class="team-name-inp" id="name-b" value="Team Beta" placeholder="Team Name">
+        </div>
+        <div class="player-list" id="list-b"></div>
+        <div class="card-actions">
+          <button class="btn" onclick="loadAll('b')">Load All</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="action-bar">
+      <div class="status-txt" id="stxt">Enter 11 players per team. Use <b>First & Last Name</b> (e.g. Virat Kohli).</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="fillDemo()">Demo XI</button>
+        <button class="btn btn-primary" id="analyze-btn" onclick="analyze()" disabled>Analyze ›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="panel" id="panel-2" id="results-panel">
+    <div id="results-content"></div>
+  </div>
+
+</div>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <div class="overlay-title">ANALYZING</div>
+  <div class="overlay-sub" id="overlay-sub">Scraping ESPNCricinfo... cached players load instantly.</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:5000/api';
+const DEMO_A = ['virat-kohli-253802','rohit-sharma-34102','kl-rahul-422108','suryakumar-yadav-446507','hardik-pandya-625383','ravindra-jadeja-234675','ms-dhoni-28081','axar-patel-554694','jasprit-bumrah-625371','yuzvendra-chahal-559235','deepak-chahar-661540'];
+const DEMO_B = ['yashasvi-jaiswal-1207652','jos-buttler-308967','sanju-samson-442710','riyan-parag-1207690','shimron-hetmyer-719671','andre-russell-300797','rashid-khan-793463','sunil-narine-321777','trent-boult-327065','avesh-khan-1131538','kuldeep-yadav-594284'];
+
+const state = { a: Array(11).fill(null), b: Array(11).fill(null) };
+
+function init() { buildList('a'); buildList('b'); }
+
+function buildList(t) {
+  const c = document.getElementById(`list-${t}`);
+  c.innerHTML = '';
+  for (let i = 0; i < 11; i++) {
+    const d = document.createElement('div');
+    d.className = 'prow'; d.id = `row-${t}-${i}`;
+    d.innerHTML = `
+      <span class="pnum">${i+1}</span>
+      <input class="pinp" id="inp-${t}-${i}" placeholder="First & Last Name"
+        onblur="onBlur('${t}',${i})"
+        onkeydown="if(event.key==='Enter')onBlur('${t}',${i})">
+      <span class="pchip" id="chip-${t}-${i}"></span>
+      <span class="pstat" id="stat-${t}-${i}"></span>
+    `;
+    c.appendChild(d);
+  }
+}
+
+async function onBlur(t, i) {
+  const val = document.getElementById(`inp-${t}-${i}`).value.trim();
+  if (!val) { clearP(t, i); return; }
+
+  // Validation: force at least two words if not numeric/slug
+  const isSlug = val.includes('-') && /\d+$/.test(val);
+  const isID = /^\d+$/.test(val);
+  if (!isSlug && !isID && val.split(' ').length < 2) {
+    setStat(t, i, 'err', '!');
+    toast('Please enter both First and Last name.');
+    return;
+  }
+  setStat(t, i, 'loading', '⟳');
+  try {
+    const r = await fetch(`${API}/load-player`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({input: val})
+    });
+    const d = await r.json();
+    if (d.success) {
+      state[t][i] = d.player;
+      setStat(t, i, 'ok', '✓');
+      setChip(t, i, d.player.name);
+    } else {
+      state[t][i] = null;
+      setStat(t, i, 'err', '✗');
+      toast(d.error || 'Not found');
+    }
+  } catch {
+    setStat(t, i, 'err', '✗');
+    toast('Cannot connect to Flask server. Run: python app.py');
+  }
+  updateBtn();
+}
+
+function setStat(t, i, cls, icon) {
+  const el = document.getElementById(`stat-${t}-${i}`);
+  el.className = `pstat ${cls}`; el.textContent = icon;
+}
+function setChip(t, i, name) {
+  const chip = document.getElementById(`chip-${t}-${i}`);
+  chip.textContent = name.split(' ').pop();
+  chip.title = name;
+  chip.classList.add('show');
+}
+function clearP(t, i) {
+  state[t][i] = null;
+  setStat(t, i, '', '');
+  document.getElementById(`chip-${t}-${i}`).classList.remove('show');
+  updateBtn();
+}
+
+async function loadAll(t) {
+  for (let i = 0; i < 11; i++) {
+    if (document.getElementById(`inp-${t}-${i}`).value.trim())
+      await onBlur(t, i);
+  }
+}
+
+function fillDemo() {
+  DEMO_A.forEach((v,i) => document.getElementById(`inp-a-${i}`).value = v);
+  DEMO_B.forEach((v,i) => document.getElementById(`inp-b-${i}`).value = v);
+  document.getElementById('name-a').value = 'Team Alpha';
+  document.getElementById('name-b').value = 'Team Beta';
+  toast('Demo XIs filled — click Load All or Analyze');
+  updateBtn();
+}
+
+function updateBtn() {
+  const ra = state.a.filter(Boolean).length;
+  const rb = state.b.filter(Boolean).length;
+  document.getElementById('analyze-btn').disabled = !(ra===11 && rb===11);
+  document.getElementById('stxt').innerHTML =
+    `Team A: <b>${ra}/11</b> &nbsp;·&nbsp; Team B: <b>${rb}/11</b>`;
+}
+
+async function analyze() {
+  const n1 = document.getElementById('name-a').value || 'Team A';
+  const n2 = document.getElementById('name-b').value || 'Team B';
+  const p1 = Array.from({length:11},(_,i)=>document.getElementById(`inp-a-${i}`).value.trim());
+  const p2 = Array.from({length:11},(_,i)=>document.getElementById(`inp-b-${i}`).value.trim());
+
+  document.getElementById('overlay').classList.add('show');
+  try {
+    const r = await fetch(`${API}/analyze`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({xi1:{name:n1,players:p1}, xi2:{name:n2,players:p2}})
+    });
+    const d = await r.json();
+    document.getElementById('overlay').classList.remove('show');
+    if (d.success) { renderResults(d); goStep(2); }
+    else toast(d.error || 'Analysis failed');
+  } catch {
+    document.getElementById('overlay').classList.remove('show');
+    toast('Cannot connect to Flask server. Run: python app.py');
+  }
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderResults(data) {
+  _lastResult = data;  // store for bowling refresh
+  const {xi1, xi2, result} = data;
+  const s1 = result.xi1.scores, s2 = result.xi2.scores;
+  const mx = v => Math.max(v,0.01);
+
+  document.getElementById('results-content').innerHTML = `
+    <div class="prediction-box">
+      <div class="vs-row">
+        <div class="vs-team" style="text-align:right">
+          <div class="vs-name a">${xi1.name}</div>
+          <div class="vs-score a">${Math.round(xi1.predicted_score)}</div>
+          <div style="font-size:.68rem;color:#555;margin-top:3px;font-family:var(--font-mono)">predicted runs</div>
+        </div>
+        <div class="vs-sep">VS</div>
+        <div class="vs-team" style="text-align:left">
+          <div class="vs-name b">${xi2.name}</div>
+          <div class="vs-score b">${Math.round(xi2.predicted_score)}</div>
+          <div style="font-size:.68rem;color:#555;margin-top:3px;font-family:var(--font-mono)">predicted runs</div>
+        </div>
+      </div>
+      <div class="winner-lbl">Predicted Winner</div>
+      <div class="winner-name">${result.winner}</div>
+      <div class="conf-bar"><div class="conf-fill" style="width:${result.confidence}%"></div></div>
+      <div class="conf-lbl">${result.confidence}% confidence</div>
+    </div>
+
+    <div class="stat-cards">
+      ${[['Batting',s1.batting,s2.batting,60],['Bowling',s1.bowling,s2.bowling,60],
+         ['Form',s1.form,s2.form,100],['Balance',s1.balance,s2.balance,100]]
+        .map(([l,v1,v2,m])=>`
+        <div class="scard">
+          <div class="scard-lbl">${l}</div>
+          <div class="srow"><span class="sval a">${v1.toFixed(1)}</span>
+            <div class="sbar-bg"><div class="sbar a" style="width:${Math.min(v1/m*100,100)}%"></div></div></div>
+          <div class="srow"><span class="sval b">${v2.toFixed(1)}</span>
+            <div class="sbar-bg"><div class="sbar b" style="width:${Math.min(v2/m*100,100)}%"></div></div></div>
+        </div>`).join('')}
+    </div>
+
+    <div class="rsection">
+      <div class="rtabs">
+        <button class="rtab active" onclick="tab('batting',this)">Batting Order</button>
+        <button class="rtab"        onclick="tab('bowling',this)">Bowling Lineup</button>
+        <button class="rtab"        onclick="tab('impact',this)">Impact Ratings</button>
+      </div>
+      <div class="rtab-content active" id="tab-batting">
+        <div class="two-col">
+          ${batTable(xi1,'a')} ${batTable(xi2,'b')}
+        </div>
+      </div>
+      <div class="rtab-content" id="tab-bowling">
+        ${bowlPanel(xi1,xi2)}
+      </div>
+            </div>
+      <div class="rtab-content" id="tab-impact">
+        <div class="two-col">
+          <div><div class="col-head a">${xi1.name}</div>${impactList(xi1)}</div>
+          <div><div class="col-head b">${xi2.name}</div>${impactList(xi2)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:12px 0 28px">
+      <button class="btn" onclick="goStep(1)">← Edit Teams</button>
+    </div>
+  `;
+}
+
+function roleBadge(r) {
+  const m = {'Opener':'opener','Top Order':'top','Upper Middle':'upper',
+    'Middle Order':'middle','Lower Middle':'lower','Finisher':'finisher',
+    'All-rounder':'allround','Bowler':'bowler','Tail':'tail'};
+  return `<span class="rbadge ${m[r]||'middle'}">${r||'?'}</span>`;
+}
+function fdot(f) { return `<span class="fdot ${f>62?'hot':f<38?'cold':'warm'}"></span>`; }
+function pips(n, t) { return `<span class="mono" style="color:${t==='a'?'#fff':'#888'}">${n}</span>`; }
+function bbadge(type) { const c=(type||'').toLowerCase(); return `<span class="bbadge ${c==='pace'?'pace':c==='spin'?'spin':''}">${type||'?'}</span>`; }
+
+function batTable(xi, t) {
+  const rows = xi.batting_order.map(p=>`
+    <tr>
+      <td class="pos-n">${p.batting_position}</td>
+      <td class="pname">${p.name}<span style="font-size:.62rem;color:#555;margin-left:5px;font-family:var(--font-mono)">${(p.batting_hand||'').includes('Left')?'L':'R'}</span></td>
+      <td>${roleBadge(p.batting_role)}</td>
+      <td class="mono">${p.ipl_avg.toFixed(1)}</td>
+      <td class="mono">${p.ipl_sr.toFixed(1)}</td>
+      <td class="mono" style="color:${t==='a'?'#fff':'#888'}">${p.predicted_runs.toFixed(0)}</td>
+    </tr>`).join('');
+  return `<div>
+    <div class="col-head ${t}">${xi.name}</div>
+    <table><thead><tr><th>#</th><th>Player</th><th>Role</th><th>Avg</th><th>SR</th><th>Pred</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="psrow"><span class="pslbl">Predicted Score</span><span class="psval ${t}">${Math.round(xi.predicted_score)}</span></div>
+  </div>`;
+}
+
+// Store bowling data globally for slider updates
+// ── Bowling over assignment ─────────────────────────────────────────
+// State: per team (a/b) -> array of 20 slots, each slot = player name or null
+const _bowlState = {};
+let _lastResult  = {};
+
+function bowlPanel(xi1, xi2) {
+  initBowlState('a', xi1.bowling_lineup);
+  initBowlState('b', xi2.bowling_lineup);
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div>${renderBowlTeam('a', xi1)}</div>
+      <div>${renderBowlTeam('b', xi2)}</div>
+    </div>`;
+}
+
+function initBowlState(t, bowlers) {
+  // Default: assign overs based on is_main_bowler / overs_quota
+  const slots = Array(20).fill(null);
+  let ov = 0;
+  // First pass: main bowlers
+  for (const p of bowlers) {
+    const q = Math.min(p.overs_quota || 0, 4);
+    for (let i = 0; i < q && ov < 20; i++) slots[ov++] = p.name;
+  }
+  _bowlState[t] = { bowlers, slots };
+}
+
+function renderBowlTeam(t, xi) {
+  const { bowlers, slots } = _bowlState[t];
+  const clr = t === 'a' ? '#fff' : '#888';
+  const { runs, filled } = calcBowlRuns(t);
+
+  // Find keeper
+  const wk = bowlers.find(p => p.is_keeper);
+
+  // Bowler table rows
+  const rows = bowlers.map(p => {
+    const assigned = slots.filter(s => s === p.name).length;
+    const isWk     = p.is_keeper;
+    const hasStats = p.ipl_wickets > 0 || p.bowl_type === 'Pace' || p.bowl_type === 'Spin';
+    return `<tr>
+      <td>
+        <span class="pname" draggable="true"
+          ondragstart="bowlDragStart(event,'${p.name.replace(/'/g,"\'")}','${t}')"
+          style="cursor:grab;display:inline-block">
+          ${p.name}
+        </span>
+        ${isWk ? '<span style="font-size:.55rem;border:1px solid #fff;color:#fff;padding:1px 3px;margin-left:4px">WK</span>' : ''}
+      </td>
+      <td>${hasStats ? bbadge(p.bowl_type) : '<span style="font-size:.6rem;color:#444">-</span>'}</td>
+      <td class="mono" style="color:#666">${p.ipl_economy > 0 ? p.ipl_economy.toFixed(1) : '-'}</td>
+      <td class="mono" style="color:${clr};font-weight:700;min-width:20px"
+        id="bov_${t}_${safe(p.name)}">${assigned}</td>
+    </tr>`;
+  }).join('');
+
+  // 20 over slots grid
+  const overSlots = slots.map((name, i) => {
+    const phase = i < 6 ? '#0d1f0d' : i >= 16 ? '#1f0d0d' : 'var(--surface)';
+    const label = i < 6 ? 'PP' : i >= 16 ? 'D' : '';
+    const short = name ? name.split(' ').pop().slice(0,7) : '';
+    return `<div id="bslot_${t}_${i}"
+      ondragover="event.preventDefault()"
+      ondrop="bowlDrop(event,${i},'${t}')"
+      onclick="bowlClear(${i},'${t}')"
+      style="background:${phase};border:1px solid ${name ? clr : '#222'};
+             padding:4px 2px;text-align:center;cursor:pointer;
+             min-height:38px;display:flex;flex-direction:column;
+             align-items:center;justify-content:center;gap:1px">
+      <div style="font-size:.5rem;color:#555;line-height:1">${label}</div>
+      <div style="font-size:.6rem;color:${name?clr:'#333'};font-family:var(--font-mono);
+                  font-weight:${name?700:400};line-height:1.1">${short||'·'}</div>
+      <div style="font-size:.48rem;color:#444">ov ${i+1}</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="col-head ${t}">${xi.name}
+      <span style="font-size:.58rem;font-family:var(--font-mono);font-weight:400;
+                   margin-left:8px;color:#555">
+        Pace:${xi.pace_count} · Spin:${xi.spin_count}
+        ${wk ? ' · WK: ' + wk.name.split(' ').pop() : ''}
+      </span>
+    </div>
+
+    <div style="font-size:.6rem;color:#555;font-family:var(--font-mono);margin-bottom:8px">
+      Drag name → over slot &nbsp;·&nbsp; Click slot to clear
+      &nbsp;·&nbsp; <span style="color:#1a5c1a">PP</span> +15%
+      &nbsp;·&nbsp; <span style="color:#5c1a1a">D</span>eath +10%
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:1px;
+                    color:#555;margin-bottom:4px">Bowlers</div>
+        <table>
+          <thead><tr>
+            <th>Player</th><th>Type</th><th>Eco</th><th>Ovs</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:1px;
+                    color:#555;margin-bottom:4px">Over Assignment (drag)</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px">
+          ${overSlots}
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:8px 12px;background:var(--surface);border:1px solid var(--border);
+                display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:.62rem;font-family:var(--font-mono);color:#555" id="bstatus_${t}">
+        ${filled === 20
+          ? '<span style="color:#4f4">✓ 20/20 overs assigned</span>'
+          : '<span style="color:#f66">⚠ ' + filled + '/20 overs assigned</span>'}
+      </span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:.6rem;color:#555;font-family:var(--font-mono)">PRED CONCEDED</span>
+        <span class="psval ${t}" id="bconc_${t}">${Math.round(runs)}</span>
+      </div>
+    </div>`;
+}
+
+// Helpers
+function safe(name) { return name.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+let _dragBowlName = null, _dragBowlT = null;
+
+function bowlDragStart(e, name, t) {
+  _dragBowlName = name; _dragBowlT = t;
+  e.dataTransfer.effectAllowed = 'copy';
+}
+
+function bowlDrop(e, i, t) {
+  e.preventDefault();
+  if (_dragBowlT !== t || !_dragBowlName) return;
+  const st = _bowlState[t];
+  // Max 4 overs per bowler
+  const count = st.slots.filter(s => s === _dragBowlName).length;
+  if (count >= 4) { toast(_dragBowlName + ' can bowl max 4 overs'); return; }
+  st.slots[i] = _dragBowlName;
+  refreshBowlTeam(t);
+}
+
+function bowlClear(i, t) {
+  _bowlState[t].slots[i] = null;
+  refreshBowlTeam(t);
+}
+
+function calcBowlRuns(t) {
+  const st = _bowlState[t] || {};
+  const slots   = st.slots || [];
+  const bowlers = st.bowlers || [];
+  const ecoMap  = {};
+  bowlers.forEach(p => { ecoMap[p.name] = p.ipl_economy > 0 ? p.ipl_economy : 8.5; });
+
+  let runs = 0, filled = 0;
+  slots.forEach((name, i) => {
+    if (!name) return;
+    filled++;
+    const eco  = ecoMap[name] || 8.5;
+    const mult = i < 6 ? 1.15 : i >= 16 ? 1.10 : 1.0;
+    runs += eco * mult;
+  });
+  return { runs, filled };
+}
+
+function refreshBowlTeam(t) {
+  const st = _bowlState[t];
+  if (!st) return;
+  const { bowlers, slots } = st;
+  const clr = t === 'a' ? '#fff' : '#888';
+
+  // Update overs count per player
+  bowlers.forEach(p => {
+    const el = document.getElementById(`bov_${t}_${safe(p.name)}`);
+    if (el) el.textContent = slots.filter(s => s === p.name).length;
+  });
+
+  // Update over slots
+  const ovLabels = Array.from({length:20}, (_,i) => i<6?'PP':i>=16?'D':'');
+  slots.forEach((name, i) => {
+    const el = document.getElementById(`bslot_${t}_${i}`);
+    if (!el) return;
+    const phase = i < 6 ? '#0d1f0d' : i >= 16 ? '#1f0d0d' : 'var(--surface)';
+    const short = name ? name.split(' ').pop().slice(0,7) : '';
+    el.style.background   = phase;
+    el.style.borderColor  = name ? clr : '#222';
+    el.innerHTML = `
+      <div style="font-size:.5rem;color:#555;line-height:1">${ovLabels[i]}</div>
+      <div style="font-size:.6rem;color:${name?clr:'#333'};font-family:var(--font-mono);
+                  font-weight:${name?700:400};line-height:1.1">${short||'·'}</div>
+      <div style="font-size:.48rem;color:#444">ov ${i+1}</div>`;
+  });
+
+  // Update predicted conceded + status
+  const { runs, filled } = calcBowlRuns(t);
+  const concEl   = document.getElementById(`bconc_${t}`);
+  const statusEl = document.getElementById(`bstatus_${t}`);
+  if (concEl)   concEl.textContent = Math.round(runs);
+  if (statusEl) statusEl.innerHTML = filled === 20
+    ? '<span style="color:#4f4">✓ 20/20 overs assigned</span>'
+    : `<span style="color:#f66">⚠ ${filled}/20 overs assigned</span>`;
+}
+
+function impactList(xi) {
+  return (xi.impact_table||[]).slice(0,8).map(p=>`
+    <div class="iitem">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="iname">${p.name}</div>
+          <div class="irole">${p.role||''} · ${p.bowl||'No bowling'}</div></div>
+        <span style="font-family:var(--font-mono);font-size:.75rem;color:#555">${p.overall.toFixed(1)}</span>
+      </div>
+      <div class="ibar-row"><span>Bat</span>
+        <div class="itrack"><div class="ifill bat" style="width:${p.batting}%"></div></div>
+        <span class="ival">${p.batting.toFixed(0)}</span></div>
+      <div class="ibar-row"><span>Bowl</span>
+        <div class="itrack"><div class="ifill bowl" style="width:${p.bowling}%"></div></div>
+        <span class="ival">${p.bowling.toFixed(0)}</span></div>
+      <div class="ibar-row"><span>Form</span>
+        <div class="itrack"><div class="ifill form" style="width:${p.form}%"></div></div>
+        <span class="ival">${p.form.toFixed(0)}</span></div>
+      <div class="ibar-row"><span>Field</span>
+        <div class="itrack"><div class="ifill field" style="width:${(p.fielding||0)}%"></div></div>
+        <span class="ival">${(p.fielding||0).toFixed(0)}</span></div>
+    </div>`).join('');
+}
+
+function tab(name, btn) {
+  document.querySelectorAll('.rtab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.rtab-content').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function goStep(n) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`panel-${n}`).classList.add('active');
+  document.querySelectorAll('.step').forEach((s,i)=>{
+    s.classList.remove('active','done');
+    if(i+1<n) s.classList.add('done');
+    if(i+1===n) s.classList.add('active');
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 4000);
+}
+
+init();
+</script>
+</body>
+</html>

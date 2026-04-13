@@ -19,7 +19,14 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))  # ensure cwd = project fol
 
 def _clear_cache():
     """Delete all cached player CSV files when app shuts down."""
-    cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
+    try:
+        base = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        base = os.getcwd()
+    
+    cache_dir = os.path.join(base, "cache")
+    if not os.path.exists(cache_dir):
+        return
     files = glob.glob(os.path.join(cache_dir, "*.csv"))
     for f in files:
         try:

@@ -33,12 +33,129 @@ sys.path.insert(0, BASE_DIR)
 from models import Player, ScrapeError, PlayerNotFoundError
 
 # ── Cricsheet scraper (Layer 1) ────────────────────────────────────────────────
-try:
-    from cricket_player_scraper import CricketPlayerScraper
-    _cricsheet = CricketPlayerScraper()
-    _cricsheet_available = True
-except ImportError:
-    _cricsheet_available = False
+import zipfile
+import pandas as pd
+
+class CricketPlayerScraper:
+    def __init__(self, data_dir="cricsheet_data"):
+        self.data_dir = os.path.join(BASE_DIR, data_dir)
+        self.zip_path = os.path.join(self.data_dir, "ipl_male_csv2.zip")
+        self.url = "https://cricsheet.org/downloads/ipl_male_csv2.zip"
+        os.makedirs(self.data_dir, exist_ok=True)
+        self._initialized = False
+        self.player_map = {} # Maps record_name to list of match_ids
+
+    def _ensure_data(self):
+        if not os.path.exists(self.zip_path) or os.path.getsize(self.zip_path) < 1000000:
+            print("  [Downloading Cricsheet DB (once)...]", end=" ", flush=True)
+            try:
+                r = requests.get(self.url, timeout=60)
+                with open(self.zip_path, 'wb') as f:
+                    f.write(r.content)
+                print("done]")
+            except Exception as e:
+                print(f"failed: {e}]")
+                return False
+
+        if not self._initialized:
+            try:
+                # Load README or a file to check if it's a valid zip
+                with zipfile.ZipFile(self.zip_path, 'r') as z:
+                    # Index the players (Mapping player names to match IDs)
+                    # To keep it fast, we only do this once
+                    print("  [Indexing Cricsheet DB...]", end=" ", flush=True)
+                    info_files = [f for f in z.namelist() if f.endswith('_info.csv')]
+                    for f in info_files:
+                        match_id = f.split('_')[0]
+                        with z.open(f) as csvf:
+                            content = csvf.read().decode('utf-8')
+                            if 'player,' in content:
+                                for line in content.splitlines():
+                                    if line.startswith('info,player,'):
+                                        parts = line.split(',')
+                                        if len(parts) >= 4:
+                                            p_name = parts[3].strip('"')
+                                            if p_name not in self.player_map:
+                                                self.player_map[p_name] = []
+                                            self.player_map[p_name].append(match_id)
+                    print("done]")
+                self._initialized = True
+            except Exception as e:
+                print(f"Index failed: {e}")
+                return False
+        return True
+
+    def search_player(self, candidate, record_name=None):
+        self._ensure_data()
+        
+        # 1. Direct record_name check
+        if record_name and record_name in self.player_map:
+            return record_name
+            
+        # 2. Direct candidate check
+        if candidate in self.player_map:
+            return candidate
+            
+        # 3. Fuzzy match
+        for p in self.player_map:
+            if candidate.lower() in p.lower():
+                return p
+        return None
+
+    def get_batting_stats(self, player_name, tournament='IPL'):
+        if not self._ensure_data() or player_name not in self.player_map:
+            return pd.DataFrame()
+        
+        match_ids = self.player_map[player_name]
+        runs, balls, fours, sixes, matches, innings = 0, 0, 0, 0, len(match_ids), 0
+        dismissed = 0
+        
+        with zipfile.ZipFile(self.zip_path, 'r') as z:
+            for mid in match_ids:
+                f = f"{mid}.csv"
+                if f not in z.namelist(): continue
+                df = pd.read_csv(z.open(f))
+                # Cricsheet CSV2 columns: match_id, season, start_date, venue, innings, ball, batting_team, bowling_team, striker, non_striker, bowler, runs_off_bat, extras, wides, noballs, byes, legbyes, penalty, wicket_type, player_dismissed
+                p_df = df[df['striker'] == player_name]
+                if not p_df.empty:
+                    innings += 1
+                    runs += p_df['runs_off_bat'].sum()
+                    balls += len(p_df[p_df['wides'].isna()])
+                    fours += len(p_df[p_df['runs_off_bat'] == 4])
+                    sixes += len(p_df[p_df['runs_off_bat'] == 6])
+                    dismissed += len(df[df['player_dismissed'] == player_name])
+                    
+        return pd.DataFrame([{
+            'Mat': matches, 'Inns': innings, 'Runs': runs, 'Balls': balls, 
+            'Dismissed': dismissed, '4s': fours, '6s': sixes, '50s': 0, '100s': 0
+        }])
+
+    def get_bowling_stats(self, player_name, tournament='IPL'):
+        if not self._ensure_data() or player_name not in self.player_map:
+            return pd.DataFrame()
+
+        match_ids = self.player_map[player_name]
+        wkts, runs_c, balls = 0, 0, 0
+        
+        with zipfile.ZipFile(self.zip_path, 'r') as z:
+            for mid in match_ids:
+                f = f"{mid}.csv"
+                if f not in z.namelist(): continue
+                df = pd.read_csv(z.open(f))
+                p_df = df[df['bowler'] == player_name]
+                if not p_df.empty:
+                    runs_c += p_df['runs_off_bat'].sum() + p_df['wides'].fillna(0).sum() + p_df['noballs'].fillna(0).sum()
+                    balls += len(p_df[p_df['wides'].isna() & p_df['noballs'].isna()])
+                    # Wickets (excluding run outs, retired hurt, etc)
+                    valid_wkts = ['bowled', 'caught', 'caught and bowled', 'lbw', 'stumped', 'hit wicket']
+                    wkts += len(p_df[p_df['wicket_type'].isin(valid_wkts)])
+
+        return pd.DataFrame([{
+            'Wkts': wkts, 'Runs': runs_c, 'Balls': balls, 'Overs': round(balls/6, 1)
+        }])
+
+_cricsheet = CricketPlayerScraper()
+_cricsheet_available = True
 
 # ── RapidAPI + Cricbuzz (Layer 2) ──────────────────────────────────────────────
 RAPIDAPI_KEY  = "a4378e1240msh25c5223e50a7129p1b0222jsn01742c6c8001"
@@ -131,7 +248,7 @@ def _cricsheet_stats(name: str, record_name: str = None) -> dict:
     try:
         # If record_name is pre-resolved in the JSON database, use it directly
         if record_name:
-            cs_name = _cricsheet.search_player(record_name)
+            cs_name = _cricsheet.search_player(name, record_name=record_name)
         else:
             # Cricsheet uses short names: "V Kohli", "RG Sharma", "JJ Bumrah"
             # Try multiple formats to find the right player
@@ -226,26 +343,144 @@ def _cricsheet_stats(name: str, record_name: str = None) -> dict:
         return {}
 
 
-# ── Layer 2: RapidAPI search + Cricbuzz HTML scrape ────────────────────────────
-def _get_cricbuzz_id(name: str) -> tuple:
-    """Search RapidAPI → return (cricbuzz_id, cricbuzz_name)."""
+
+# ── Layer 2: Statsguru/Cricinfo (ID-based) ───────────────────────────────────
+def _scrape_statsguru(pid: int) -> dict:
+    """
+    Scrape IPL career stats directly from ESPNCricinfo Statsguru.
+    trophy=117 ensures we only get Indian Premier League data.
+    """
+    url = f"https://stats.espncricinfo.com/ci/engine/player/{pid}.html?class=6;template=results;type=allround;trophy=117"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    
     try:
-        r = requests.get(
-            f"https://{RAPIDAPI_HOST}/players/search",
-            headers=RAPIDAPI_HEADERS,
-            params={"plrN": name},
-            timeout=10,
-        )
-        if r.status_code == 200:
-            players = r.json().get("player", [])
-            if players:
-                for p in players:
-                    if p["name"].lower() == name.lower():
-                        return p["id"], p["name"]
-                return players[0]["id"], players[0]["name"]
+        r = requests.get(url, headers=headers, timeout=15)
+        if r.status_code != 200: return {}
+        
+        soup = BeautifulSoup(r.text, "html.parser")
+        tables = soup.find_all("table", class_="engineTable")
+        if len(tables) < 3: return {}
+
+        stats = {}
+        target_table = tables[2]
+        
+        # 1. Map headers to indices
+        header_row = target_table.find("thead")
+        if not header_row: header_row = target_table.find("tr", class_="head")
+        if not header_row: header_row = target_table.find("tr") # First row fallback
+        
+        cols = [th.get_text(strip=True) for th in header_row.find_all(["th", "td"])]
+        idx = {name: i for i, name in enumerate(cols)}
+        
+        # 2. Extract from 'filtered' row
+        for row in target_table.find_all("tr"):
+            cells = [td.get_text(strip=True) for td in row.find_all(["td","th"])]
+            if len(cells) > 0 and cells[0].lower() == "filtered":
+                def get_val(key, default=0):
+                    i = idx.get(key)
+                    if i is not None and i < len(cells):
+                        raw = cells[i].replace("*","").replace("-","0")
+                        try: return float(raw) if "." in raw else int(raw)
+                        except: pass
+                    return default
+
+                stats.update({
+                    "ipl_matches": int(get_val("Mat")),
+                    "ipl_runs":    int(get_val("Runs")),
+                    "ipl_wickets": int(get_val("Wkts")),
+                    "ipl_highest": int(get_val("HS")),
+                })
+                # Check for SR in this table (Allround view might have it)
+                sr = get_val("SR")
+                if sr > 0: stats["ipl_sr"] = sr
+                break
+        
+        if not stats: return {}
+
+        # 3. Batting view for Innings/SR if missing
+        if "ipl_sr" not in stats or stats.get("ipl_innings", 0) == 0:
+            bat_url = f"https://stats.espncricinfo.com/ci/engine/player/{pid}.html?class=6;template=results;type=batting;trophy=117"
+            br = requests.get(bat_url, headers=headers, timeout=10)
+            if br.status_code == 200:
+                bsoup = BeautifulSoup(br.text, "html.parser")
+                btable = bsoup.find_all("table", class_="engineTable")[2]
+                bhead = btable.find("tr", class_="head") or btable.find("tr")
+                bcols = [th.get_text(strip=True) for th in bhead.find_all(["th", "td"])]
+                bidx = {name: i for i, name in enumerate(bcols)}
+                
+                for brow in btable.find_all("tr"):
+                    bcells = [td.get_text(strip=True) for td in brow.find_all(["td","th"])]
+                    if len(bcells) > 0 and bcells[0].lower() == "filtered":
+                        def get_bval(key, default=0):
+                            i = bidx.get(key)
+                            if i is not None and i < len(bcells):
+                                raw = bcells[i].replace("-","0")
+                                try: return float(raw) if "." in raw else int(raw)
+                                except: pass
+                            return default
+                        
+                        stats.update({
+                            "ipl_innings":  int(get_bval("Inns")),
+                            "ipl_sr":       float(get_bval("SR")),
+                            "ipl_not_outs": int(get_bval("NO")),
+                            "ipl_avg":      float(get_bval("Ave")),
+                            "ipl_fifties":  int(get_bval("50")),
+                            "ipl_hundreds": int(get_bval("100")),
+                            "ipl_fours":    int(get_bval("4s")),
+                            "ipl_sixes":    int(get_bval("6s")),
+                            "ipl_ducks":    int(get_bval("0")),
+                        })
+                        break
+        
+        return stats
     except Exception as e:
-        print(f"\n    [Search error: {e}]", end="")
+        print(f" [Statsguru error: {e}]", end="")
+        return {}
+
+
+# ── Layer 3: Cricbuzz fallback logic ───────────────────────────────────────────
+def _get_cricbuzz_id_ddg(name: str) -> tuple:
+    """Fallback search using DuckDuckGo if Google blocks us."""
+    try:
+        url = f"https://duckduckgo.com/html/?q=cricbuzz+player+profile+{name.replace(' ','+')}"
+        r = _get_cb_session().get(url, headers=CB_HEADERS, timeout=10)
+        
+        # Pattern 1: Direct link
+        m = re.search(r'cricbuzz\.com/profiles/(\d+)/([^&"\' >]+)', r.text)
+        if m:
+            return m.group(1), m.group(2).replace("-", " ").title()
+            
+        # Pattern 2: Result in redirect param
+        m = re.search(r'profiles(?:/|%2F)(\d+)(?:/|%2F)([^&"\' >%]+)', r.text)
+        if m:
+            return m.group(1), m.group(2).replace("-", " ").replace("%2D", " ").title()
+            
+    except Exception as e:
+        print(f" [DDG error: {e}]", end="")
     return None, None
+
+def _get_cricbuzz_id(name: str) -> tuple:
+    """Search Cricbuzz via multiple engines to find profile ID."""
+    # Try Google first
+    cb_id, cb_name = None, None
+    try:
+        url = f"https://www.google.com/search?q=cricbuzz+player+profile+{name.replace(' ','+')}"
+        r = _get_cb_session().get(url, headers=CB_HEADERS, timeout=10)
+        m = re.search(r'cricbuzz\.com/profiles/(\d+)/([^&"\' >]+)', r.text)
+        if m:
+            cb_id, cb_name = m.group(1), m.group(2).replace("-", " ").title()
+        else:
+            m = re.search(r'profiles(?:/|%2F)(\d+)(?:/|%2F)([^&"\' >%]+)', r.text)
+            if m:
+                cb_id, cb_name = m.group(1), m.group(2).replace("-", " ").replace("%2D", " ").title()
+    except:
+        pass
+
+    # Fallback to DuckDuckGo if Google failed or blocked us
+    if not cb_id:
+        cb_id, cb_name = _get_cricbuzz_id_ddg(name)
+        
+    return cb_id, cb_name
 
 
 def _scrape_cricbuzz(cb_id: str, cb_name: str) -> dict:
@@ -287,32 +522,46 @@ def _scrape_cricbuzz(cb_id: str, cb_name: str) -> dict:
             return cast(str(v).replace("*","").strip())
         except: return default
 
-    bat_raw  = parse_table(tables[2])
-    bowl_raw = parse_table(tables[3]) if len(tables) > 3 else {}
+    bat_raw = {}
+    for table in tables:
+        if "Batting" in table.get_text():
+            bat_raw = parse_table(table)
+            break
+            
+    bowl_raw = {}
+    for table in tables:
+        if "Bowling" in table.get_text():
+            bowl_raw = parse_table(table)
+            break
 
-    bat_fmt  = "IPL" if get(bat_raw,  "Runs",    "IPL", int) > 0 else "T20"
-    bowl_fmt = "IPL" if get(bowl_raw, "Wickets", "IPL", int) > 0 else "T20"
+    def determine_fmt(data):
+        if "IPL" in data: return "IPL"
+        if "T20" in data: return "T20"
+        return next(iter(data.keys())) if data else "IPL"
+
+    bat_fmt  = determine_fmt(bat_raw)
+    bowl_fmt = determine_fmt(bowl_raw)
 
     batting = {
-        "ipl_matches":  get(bat_raw, "Matches", bat_fmt, int),
-        "ipl_innings":  get(bat_raw, "Innings", bat_fmt, int),
+        "ipl_matches":  get(bat_raw, "Mat", bat_fmt, int),
+        "ipl_innings":  get(bat_raw, "Inns", bat_fmt, int),
         "ipl_runs":     get(bat_raw, "Runs",    bat_fmt, int),
-        "ipl_highest":  get(bat_raw, "Highest", bat_fmt, int),
-        "ipl_avg":      get(bat_raw, "Average", bat_fmt, float),
+        "ipl_highest":  get(bat_raw, "HS", bat_fmt, int),
+        "ipl_avg":      get(bat_raw, "Avg", bat_fmt, float),
         "ipl_sr":       get(bat_raw, "SR",      bat_fmt, float),
-        "ipl_not_outs": get(bat_raw, "Not Out", bat_fmt, int),
-        "ipl_fours":    get(bat_raw, "Fours",   bat_fmt, int),
-        "ipl_sixes":    get(bat_raw, "Sixes",   bat_fmt, int),
+        "ipl_not_outs": get(bat_raw, "NO", bat_fmt, int),
+        "ipl_fours":    get(bat_raw, "4s",   bat_fmt, int),
+        "ipl_sixes":    get(bat_raw, "6s",   bat_fmt, int),
         "ipl_fifties":  get(bat_raw, "50s",     bat_fmt, int),
         "ipl_hundreds": get(bat_raw, "100s",    bat_fmt, int),
         "ipl_ducks":    get(bat_raw, "Ducks",   bat_fmt, int),
     }
     balls = get(bowl_raw, "Balls", bowl_fmt, int)
     bowling = {
-        "ipl_overs":    round(balls / 6, 1),
-        "ipl_wickets":  get(bowl_raw, "Wickets", bowl_fmt, int),
+        "ipl_overs":    get(bowl_raw, "Overs", bowl_fmt, float),
+        "ipl_wickets":  get(bowl_raw, "Wkts", bowl_fmt, int),
         "ipl_bowl_avg": get(bowl_raw, "Avg",     bowl_fmt, float),
-        "ipl_economy":  get(bowl_raw, "Eco",     bowl_fmt, float),
+        "ipl_economy":  get(bowl_raw, "Econ",     bowl_fmt, float),
         "ipl_sr_bowl":  get(bowl_raw, "SR",      bowl_fmt, float),
         "ipl_best":     bowl_raw.get("BBI", {}).get(bowl_fmt, "0/0") or "0/0",
     }
@@ -413,6 +662,9 @@ def _load(name: str, pid: int):
 
 
 # ── Main public API ────────────────────────────────────────────────────────────
+# ── Main public API ────────────────────────────────────────────────────────────
+FORCE_FALLBACK = ["RG Sharma", "SA Yadav", "Rohit Sharma", "Suryakumar Yadav"]  # Known Cricsheet name collisions
+
 def scrape_player(raw_input: str, force: bool = False) -> Player:
     """
     Full 3-layer scraping pipeline:
@@ -421,20 +673,25 @@ def scrape_player(raw_input: str, force: bool = False) -> Player:
       3. Fallback: RapidAPI search → Cricbuzz HTML scrape
     """
     name, pid, record_name = resolve_player_id(raw_input)
-    print(f"  ► {name:<28} (ID:{pid})", end="  ", flush=True)
+    print(f"  > {name:<28} (ID:{pid})", end="  ", flush=True)
 
     if not force:
         cached = _load(name, pid)
         if cached:
-            print(f"cache ✓  [{cached.ipl_runs}r / {cached.ipl_wickets}w / {cached.batting_role}]")
+            print(f"cache [v]  [{cached.ipl_runs}r / {cached.ipl_wickets}w / {cached.batting_role}]")
             return cached
 
     player = Player(name, pid)
     player.record_name = record_name
 
     # ── Layer 1: Cricsheet ─────────────────────────────────────────────────
-    print("cricsheet...", end="  ", flush=True)
-    cs_stats = _cricsheet_stats(name, record_name)
+    # Skip Cricsheet if name is a known duplicate or suspicious
+    skip_cricsheet = (record_name in FORCE_FALLBACK) or (name in FORCE_FALLBACK)
+    
+    cs_stats = {}
+    if not skip_cricsheet:
+        print("cricsheet...", end="  ", flush=True)
+        cs_stats = _cricsheet_stats(name, record_name)
 
     # Validate cricsheet data — sanity check the stats make sense
     cs_runs    = cs_stats.get("ipl_runs", 0)
@@ -444,53 +701,54 @@ def scrape_player(raw_input: str, force: bool = False) -> Player:
     cs_innings = cs_stats.get("ipl_innings", 0)
 
     # Flag as suspicious if stats look like a wrong player was matched:
-    # - avg < 10 with 5+ innings (most batters avg 15+)
-    # - SR < 80 with 5+ innings (IPL is high-octane, rarely below 90)
-    # - very few runs despite many innings (wrong player)
+    is_bowler = cs_stats.get("ipl_wickets", 0) > 10
+    
     cs_suspicious = (
-        cs_innings >= 5 and (
-            cs_avg < 10 or
-            (cs_sr > 0 and cs_sr < 80) or
-            (cs_innings >= 10 and cs_runs < 100)
+        not is_bowler and cs_innings >= 5 and (
+            cs_avg < 12 or
+            (cs_sr > 0 and cs_sr < 95) or
+            (cs_innings >= 10 and cs_runs < 150)
         )
     )
 
-    if (cs_runs > 0 or cs_stats.get("ipl_wickets", 0) > 0) and not cs_suspicious:
+    # If it's a known risky name or suspicious stats, force Layer 2
+    if not skip_cricsheet and (cs_runs > 0 or cs_stats.get("ipl_wickets", 0) > 0) and not cs_suspicious:
         for key, val in cs_stats.items():
             if hasattr(player, key):
                 setattr(player, key, val)
-        print(f"cricsheet ✓", end="  ", flush=True)
-        # Also get bio + highest from Cricbuzz
-        cb_id, cb_name = _get_cricbuzz_id(name)
-        if cb_id:
-            player.cricbuzz_id = cb_id
-            cb_stats = _scrape_cricbuzz(cb_id, cb_name)
-            # Only take bio fields + highest from Cricbuzz
-            for field in ["batting_hand", "bowling_style", "ipl_highest", "ipl_best"]:
-                if cb_stats.get(field):
-                    setattr(player, field, cb_stats[field])
-
+        print(f"cricsheet [v]", end="  ", flush=True)
     else:
-        if cs_suspicious:
-            print(f"cricsheet mismatch (avg={cs_avg:.1f}/mat={cs_matches})...", end="  ", flush=True)
-        # ── Layer 2: Cricbuzz fallback ─────────────────────────────────────
-        print(f"cricbuzz...", end="  ", flush=True)
-        cb_id, cb_name = _get_cricbuzz_id(name)
-        if not cb_id:
-            parts = name.split()
-            if len(parts) > 1:
-                cb_id, cb_name = _get_cricbuzz_id(parts[-1])
-
-        if cb_id:
-            player.cricbuzz_id = cb_id
-            cb_stats = _scrape_cricbuzz(cb_id, cb_name)
-            for key, val in cb_stats.items():
+        if skip_cricsheet:
+            print(f"skipping cricsheet (risky name)...", end="  ", flush=True)
+        elif cs_suspicious:
+            print(f"cricsheet mismatch (stats look off)...", end="  ", flush=True)
+        
+        # ── Layer 2: Statsguru/Cricinfo Fallback ───────────────────────────
+        print(f"statsguru...", end="  ", flush=True)
+        sg_stats = _scrape_statsguru(pid)
+        if sg_stats:
+            for key, val in sg_stats.items():
                 if hasattr(player, key):
                     setattr(player, key, val)
+            print(f"statsguru [v]", end="  ", flush=True)
+        else:
+            # ── Layer 3: Cricbuzz fallback ─────────────────────────────────────
+            print(f"cricbuzz...", end="  ", flush=True)
+            cb_id, cb_name = _get_cricbuzz_id(name)
+            if not cb_id:
+                cb_id, cb_name = _get_cricbuzz_id(name + " ipl")
+
+            if cb_id:
+                player.cricbuzz_id = cb_id
+                cb_stats = _scrape_cricbuzz(cb_id, cb_name)
+                for key, val in cb_stats.items():
+                    if hasattr(player, key):
+                        setattr(player, key, val)
+                print(f"cricbuzz [v]", end="  ", flush=True)
 
     player.detect_roles()
     _save(player)
-    print(f"done ✓  [{player.ipl_runs}r / {player.ipl_wickets}w / {player.batting_role} / {player.bowling_type}]")
+    print(f"done [v]  [{player.ipl_runs}r / {player.ipl_wickets}w / {player.batting_role}]")
     return player
 
 
